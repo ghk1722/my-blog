@@ -4,7 +4,7 @@ import { createPost } from "@/lib/posts";
 import { isOwner } from "@/lib/session";
 
 export const metadata = {
-  title: "새 글 작성 · My Blog",
+  title: "새 글 작성 · 권경희의 새로운 세계",
 };
 
 export default async function NewPostPage() {

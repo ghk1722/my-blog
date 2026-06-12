@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "My Blog",
-  description: "Next.js + Supabase로 만든 개인 블로그",
+  title: "권경희의 새로운 세계",
+  description: "권경희의 새로운 세계 — Next.js + Supabase로 만든 개인 블로그",
 };
 
 export default async function RootLayout({
@@ -36,7 +36,7 @@ export default async function RootLayout({
         <header className="border-b border-black/10 dark:border-white/10">
           <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-4">
             <Link href="/" className="text-lg font-bold">
-              My Blog
+              권경희의 새로운 세계
             </Link>
             <nav className="flex items-center gap-2">
               {/* 로그인 기능 OFF: 글쓰기만 노출 */}
@@ -81,7 +81,7 @@ export default async function RootLayout({
         </main>
 
         <footer className="border-t border-black/10 py-6 text-center text-sm text-black/50 dark:border-white/10 dark:text-white/50">
-          © {new Date().getFullYear()} My Blog
+          © {new Date().getFullYear()} 권경희의 새로운 세계
         </footer>
       </body>
     </html>

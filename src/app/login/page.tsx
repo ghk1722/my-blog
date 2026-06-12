@@ -3,7 +3,7 @@ import LoginForm from "@/components/LoginForm";
 import { getUser } from "@/lib/session";
 
 export const metadata = {
-  title: "로그인 · My Blog",
+  title: "로그인 · 권경희의 새로운 세계",
 };
 
 export default async function LoginPage() {

@@ -8,7 +8,7 @@ import type { Post } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "글 수정 · My Blog",
+  title: "글 수정 · 권경희의 새로운 세계",
 };
 
 export default async function EditPostPage({

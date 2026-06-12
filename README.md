@@ -1,6 +1,6 @@
-# My Blog
+# 권경희의 새로운 세계
 
-**Next.js + Supabase**로 만든 개인 블로그입니다. 마크다운으로 글을 작성하고, 분야(카테고리)별로 글을 모아 볼 수 있습니다.
+**Next.js + Supabase**로 만든 개인 블로그입니다. 마크다운으로 글을 작성하고, 이미지를 업로드하며, 분야(카테고리)별로 글을 모아 볼 수 있습니다.
 
 > 데모 기준 글 데이터는 2026년 6월 최신 뉴스(AI·우주·과학·웹개발)를 반영한 샘플입니다.
 
@@ -10,6 +10,7 @@
 
 - **글 CRUD** — 작성 / 목록 / 상세 / 수정 / 삭제
 - **마크다운 본문** — `react-markdown` + `remark-gfm`(표, 체크박스 등 GFM 지원)
+- **이미지 업로드(OSS)** — Supabase Storage에 이미지를 업로드하면 마크다운 본문에 자동 삽입
 - **분야별 보기** — AI / 우주 / 과학 / 웹개발 / 기타 탭으로 필터링
 - **로그인(주인 전용 쓰기)** — 이메일+비밀번호 로그인. *현재는 토글로 임시 비활성화* (아래 [로그인 기능](#-로그인-기능-onoff) 참고)
 - **다크 모드** — OS 설정에 따라 자동 적용
@@ -23,7 +24,7 @@
 | 프레임워크 | Next.js 16 (App Router, Turbopack) |
 | 언어 | TypeScript |
 | UI | React 19, Tailwind CSS v4, `@tailwindcss/typography` |
-| 백엔드/DB | Supabase (PostgreSQL + Auth) |
+| 백엔드/DB | Supabase (PostgreSQL + Auth + Storage) |
 | Supabase SDK | `@supabase/supabase-js`, `@supabase/ssr` |
 | 마크다운 | `react-markdown`, `remark-gfm` |
 
@@ -61,6 +62,7 @@ MyBlog/
 ├─ supabase/
 │  ├─ schema.sql                 # 테이블 생성 (최초 1회)
 │  ├─ add-category.sql           # 분야 컬럼 추가 + 기존 글 백필
+│  ├─ storage.sql                # 이미지 저장소(버킷 + 정책)
 │  └─ auth-policies.sql          # 로그인 적용 시 RLS 정책
 ├─ scripts/
 │  └─ seed-posts.mjs             # 샘플 글 10개 삽입 스크립트
@@ -108,8 +110,9 @@ Supabase 대시보드 **SQL Editor**에서 아래 파일 내용을 실행합니�
 | 순서 | 파일 | 설명 | 필수 |
 |------|------|------|------|
 | 1 | `supabase/schema.sql` | `posts` 테이블 생성 | ✅ |
-| 2 | `supabase/add-category.sql` | 분야 컬럼 추가 + 샘플 글 백필 | 분야 기능 사용 시 |
-| 3 | `supabase/auth-policies.sql` | RLS 정책(주인만 쓰기) | 로그인 켤 때 |
+| 2 | `supabase/storage.sql` | 이미지 저장소 버킷(`post-images`) + 정책 | 이미지 업로드 사용 시 |
+| 3 | `supabase/add-category.sql` | 분야 컬럼 추가 + 샘플 글 백필 | 분야 기능 사용 시 |
+| 4 | `supabase/auth-policies.sql` | RLS 정책(주인만 쓰기) | 로그인 켤 때 |
 
 > `schema.sql`에 이미 `category` 컬럼이 포함되어 있으므로, **새로 시작하는 경우 1번만 실행**하면 됩니다. `add-category.sql`은 기존에 `category` 없이 만든 DB를 업데이트할 때 쓰는 마이그레이션입니다.
 
@@ -138,6 +141,15 @@ node scripts/seed-posts.mjs
 ### 글 작성
 1. 헤더의 **글쓰기** 버튼 클릭 (`/posts/new`)
 2. 제목 / 분야 / 본문(마크다운) 입력 후 **발행하기**
+
+### 이미지 업로드 (OSS)
+1. 본문 영역 우측의 **🖼 이미지 추가** 버튼 클릭
+2. 이미지를 선택하면 Supabase Storage(`post-images` 버킷)에 업로드되고,
+   `![이미지](공개URL)` 형태로 **커서 위치에 자동 삽입**됩니다.
+3. 상세 페이지에서 마크다운이 렌더링되며 이미지가 표시됩니다.
+
+> 사전에 `supabase/storage.sql`을 실행해 버킷과 정책을 만들어야 합니다.
+> (안 했을 경우 업로드 시 안내 메시지가 표시됩니다.)
 
 ### 글 보기 & 분야 필터
 - 홈에서 글 목록을 최신순으로 확인
