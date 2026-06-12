@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isOwner } from "@/lib/session";
 
 function parseForm(formData: FormData) {
@@ -27,7 +27,7 @@ export async function createPost(formData: FormData) {
     throw new Error("제목을 입력해 주세요.");
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("posts")
     .insert({ title, content, category })
@@ -50,7 +50,7 @@ export async function updatePost(id: string, formData: FormData) {
     throw new Error("제목을 입력해 주세요.");
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("posts")
     .update({ title, content, category, updated_at: new Date().toISOString() })
@@ -68,7 +68,7 @@ export async function updatePost(id: string, formData: FormData) {
 /** 글 삭제 — id를 bind 해서 form action으로 사용한다 */
 export async function deletePost(id: string) {
   await assertOwner();
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("posts").delete().eq("id", id);
 
   if (error) {

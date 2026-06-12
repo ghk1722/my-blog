@@ -10,6 +10,7 @@
 
 - **글 CRUD** — 작성 / 목록 / 상세 / 수정 / 삭제
 - **패스코드 잠금** — 6자리 숫자 패스코드로 잠금을 해제해야 글 작성·수정·삭제 가능
+- **마크다운 에디터** — 서식 툴바(굵게·기울임·제목·목록·인용·코드·링크) + **쓰기/미리보기** 탭
 - **마크다운 본문** — `react-markdown` + `remark-gfm`(표, 체크박스 등 GFM 지원)
 - **이미지(OSS)** — 파일 업로드(Supabase Storage) 또는 URL로 본문에 이미지 삽입
 - **유튜브 임베드** — 본문에 유튜브 URL을 넣으면 상세 페이지에서 영상이 바로 재생
@@ -45,20 +46,23 @@ MyBlog/
 │  │     └─ [id]/
 │  │        ├─ page.tsx          # 글 상세 (마크다운/유튜브 렌더링)
 │  │        └─ edit/page.tsx     # 글 수정
+│  ├─ app/api/upload/route.ts    # 이미지 업로드(서버 경유, 패스코드+service_role)
 │  ├─ components/
-│  │  ├─ PostForm.tsx            # 작성/수정 공용 폼 (분야·이미지·유튜브)
+│  │  ├─ PostForm.tsx            # 작성/수정 공용 폼 (제목·분야·에디터)
+│  │  ├─ MarkdownEditor.tsx      # 마크다운 에디터 (툴바·미리보기·미디어 삽입)
 │  │  ├─ MarkdownContent.tsx     # 마크다운 + 유튜브 임베드 렌더러
 │  │  ├─ DeleteButton.tsx        # 삭제 버튼 (확인창)
 │  │  └─ PasscodeForm.tsx        # 6자리 패스코드 입력 폼
 │  ├─ lib/
-│  │  ├─ posts.ts                # 글 CRUD 서버 액션
+│  │  ├─ posts.ts                # 글 CRUD 서버 액션 (admin 클라이언트로 쓰기)
 │  │  ├─ auth.ts                 # 패스코드 잠금 해제/잠금 서버 액션
 │  │  ├─ session.ts              # 패스코드 검증 헬퍼(isOwner)
 │  │  ├─ categories.ts           # 분야 목록 상수
 │  │  ├─ youtube.ts              # 유튜브 URL → 영상 ID 추출
 │  │  ├─ types.ts                # Post 타입
 │  │  └─ supabase/
-│  │     ├─ server.ts            # 서버용 Supabase 클라이언트
+│  │     ├─ server.ts            # 서버용 Supabase 클라이언트(anon, 읽기)
+│  │     ├─ admin.ts             # 서버 전용 admin 클라이언트(service_role, 쓰기)
 │  │     ├─ client.ts            # 브라우저용 클라이언트
 │  │     └─ middleware.ts        # 세션 갱신 로직
 │  └─ proxy.ts                   # 요청마다 세션 갱신 (Next 16: 구 middleware)
@@ -66,7 +70,8 @@ MyBlog/
 │  ├─ schema.sql                 # 테이블 생성 (최초 1회)
 │  ├─ add-category.sql           # 분야 컬럼 추가 + 기존 글 백필
 │  ├─ storage.sql                # 이미지 저장소(버킷 + 정책)
-│  └─ auth-policies.sql          # 로그인 적용 시 RLS 정책
+│  ├─ secure-policies.sql        # 보안 구조(읽기만 공개, 쓰기는 서버 전용)
+│  └─ auth-policies.sql          # (대안) 이메일 로그인 기반 RLS
 ├─ scripts/
 │  └─ seed-posts.mjs             # 샘플 글 10개 삽입 스크립트
 └─ .env.local                    # 환경변수 (git 제외)
@@ -103,8 +108,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-PUBLIC-KEY
 # 글 작성/수정/삭제 잠금 해제용 6자리 패스코드 (본인 코드로 변경!)
 BLOG_PASSCODE=000000
 
-# (선택) 이메일 로그인 방식을 쓸 때만 사용
-OWNER_EMAIL=your-email@example.com
+# (보안 구조) 서버 전용 service_role 키 — Supabase > Settings > API
+# secure-policies.sql 적용 시 필수. 절대 NEXT_PUBLIC_ 접두사 금지(브라우저 노출).
+SUPABASE_SERVICE_ROLE_KEY=YOUR-SERVICE-ROLE-SECRET-KEY
 ```
 
 > 패스코드는 `BLOG_PASSCODE` 환경변수로 관리합니다. `NEXT_PUBLIC_` 접두사가 **없으므로 서버에서만** 읽히고 브라우저에 노출되지 않습니다. 입력한 코드는 쿠키에 해시(SHA-256)로 저장됩니다.
@@ -120,7 +126,7 @@ Supabase 대시보드 **SQL Editor**에서 아래 파일 내용을 실행합니�
 | 1 | `supabase/schema.sql` | `posts` 테이블 생성 | ✅ |
 | 2 | `supabase/storage.sql` | 이미지 저장소 버킷(`post-images`) + 정책 | 이미지 업로드 사용 시 |
 | 3 | `supabase/add-category.sql` | 분야 컬럼 추가 + 샘플 글 백필 | 분야 기능 사용 시 |
-| 4 | `supabase/auth-policies.sql` | RLS 정책(주인만 쓰기) | 로그인 켤 때 |
+| 4 | `supabase/secure-policies.sql` | **보안 구조**(읽기만 공개, 쓰기는 서버 전용) | **공개 배포 시 권장** |
 
 > `schema.sql`에 이미 `category` 컬럼이 포함되어 있으므로, **새로 시작하는 경우 1번만 실행**하면 됩니다. `add-category.sql`은 기존에 `category` 없이 만든 DB를 업데이트할 때 쓰는 마이그레이션입니다.
 
@@ -153,7 +159,12 @@ node scripts/seed-posts.mjs
 
 ### 글 작성
 1. 헤더의 **글쓰기** 버튼 클릭 (`/posts/new`)
-2. 제목 / 분야 / 본문(마크다운) 입력 후 **발행하기**
+2. 제목 / 분야 입력
+3. **에디터**로 본문 작성
+   - 툴바: 제목 `H` / 굵게 `B` / 기울임 `I` / 인용 / 목록 / 코드 / 링크
+   - **쓰기 / 미리보기** 탭으로 렌더 결과 확인
+   - 🖼 이미지(업로드) / 🔗 이미지 URL / 🎬 유튜브 삽입
+4. **발행하기**
 
 ### 이미지 넣기 (OSS)
 본문 영역 우측 도구로 두 가지 방법 지원 — 선택 시 **커서 위치에 자동 삽입**됩니다.
@@ -245,17 +256,29 @@ export const CATEGORIES = ["AI", "우주", "과학", "웹개발", "기타"] as c
 ## ☁️ 배포 (Vercel)
 
 1. [Vercel](https://vercel.com)에 이 저장소 import
-2. 환경변수(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `BLOG_PASSCODE`) 등록
-3. 배포
+2. **환경변수 4개** 등록 (Production/Preview/Development 모두):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `BLOG_PASSCODE`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+3. Supabase에서 `supabase/secure-policies.sql` 실행
+4. 배포(또는 Redeploy)
 
-> ### ⚠️ 배포 전 보안 체크
-> 패스코드 잠금은 **앱(UI/서버 액션) 레벨** 보호입니다. 반면 `NEXT_PUBLIC_SUPABASE_ANON_KEY`는 **브라우저에 노출**되고, 현재 DB는 RLS가 꺼져 있어 **anon 키만으로 DB에 직접 쓰기/삭제가 가능**합니다.
->
-> 공개 배포한다면 DB 자체를 보호하기 위해 **RLS 적용을 권장**합니다.
-> - 간단하게: `posts` 테이블 RLS를 켜고 `select`만 허용 → 쓰기는 막고, 글 작성은 서비스 측에서만(별도 처리)
-> - 또는 `supabase/auth-policies.sql`(이메일 로그인 기반)로 전환
->
-> 개인적으로 비공개로 쓰거나 키를 노출하지 않는 환경이라면 패스코드 잠금만으로도 충분합니다.
+> ⚠️ 환경변수는 **빌드 시 적용**되므로, 추가/변경 후 반드시 **Redeploy** 해야 합니다.
+
+---
+
+## 🛡 보안 구조
+
+| 동작 | 사용 키 | 보호 방식 |
+|------|---------|-----------|
+| 읽기(목록/상세) | anon (공개) | RLS `select` 허용 |
+| 쓰기(작성/수정/삭제) | **service_role (서버 전용)** | 패스코드 검증 후 서버에서만 실행 |
+| 이미지 업로드 | **service_role (서버 전용)** | `/api/upload`에서 패스코드 검증 후 실행 |
+
+- 브라우저에 노출되는 `anon` 키로는 **쓰기/업로드가 불가능**합니다 (RLS로 차단).
+- 모든 쓰기는 `BLOG_PASSCODE` 검증을 통과한 **서버**에서 `service_role` 키로만 수행됩니다.
+- `secure-policies.sql`을 실행하지 않으면(또는 `SUPABASE_SERVICE_ROLE_KEY` 미설정 시) admin 클라이언트가 anon 키로 폴백하므로 로컬 개발은 되지만, **공개 배포 시에는 반드시 적용**해야 안전합니다.
 
 ---
 
