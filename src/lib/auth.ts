@@ -1,38 +1,49 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { PASSCODE_COOKIE, makeToken } from "@/lib/session";
 
-export type LoginState = { error?: string };
+export type UnlockState = { error?: string };
 
-/** 이메일 + 비밀번호 로그인 (useActionState 용 시그니처) */
-export async function login(
-  _prevState: LoginState,
+/** 6자리 패스코드로 잠금 해제 (useActionState 용 시그니처) */
+export async function unlock(
+  _prevState: UnlockState,
   formData: FormData,
-): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
+): Promise<UnlockState> {
+  const code = String(formData.get("passcode") ?? "").trim();
+  const expected = process.env.BLOG_PASSCODE ?? "";
 
-  if (!email || !password) {
-    return { error: "이메일과 비밀번호를 입력해 주세요." };
+  if (!/^\d{6}$/.test(code)) {
+    return { error: "6자리 숫자를 입력해 주세요." };
+  }
+  if (!expected) {
+    return {
+      error: "서버에 패스코드가 설정되어 있지 않습니다. (.env.local 의 BLOG_PASSCODE)",
+    };
+  }
+  if (code !== expected) {
+    return { error: "패스코드가 올바르지 않습니다." };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    return { error: "이메일 또는 비밀번호가 올바르지 않습니다." };
-  }
+  const store = await cookies();
+  store.set(PASSCODE_COOKIE, makeToken(code), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30, // 30일
+  });
 
   revalidatePath("/", "layout");
   redirect("/");
 }
 
-/** 로그아웃 */
-export async function logout() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+/** 잠금 (쿠키 삭제) */
+export async function lock() {
+  const store = await cookies();
+  store.delete(PASSCODE_COOKIE);
   revalidatePath("/", "layout");
   redirect("/");
 }

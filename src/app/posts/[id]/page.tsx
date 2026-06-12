@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import MarkdownContent from "@/components/MarkdownContent";
 import DeleteButton from "@/components/DeleteButton";
 import { deletePost } from "@/lib/posts";
 import { isOwner } from "@/lib/session";
@@ -73,11 +72,7 @@ export default async function PostPage({
       </header>
 
       {post.content ? (
-        <div className="prose prose-zinc max-w-none dark:prose-invert">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {post.content}
-          </ReactMarkdown>
-        </div>
+        <MarkdownContent content={post.content} />
       ) : (
         <p className="text-black/50 dark:text-white/50">(본문이 없습니다.)</p>
       )}

@@ -9,10 +9,11 @@
 ## ✨ 주요 기능
 
 - **글 CRUD** — 작성 / 목록 / 상세 / 수정 / 삭제
+- **패스코드 잠금** — 6자리 숫자 패스코드로 잠금을 해제해야 글 작성·수정·삭제 가능
 - **마크다운 본문** — `react-markdown` + `remark-gfm`(표, 체크박스 등 GFM 지원)
-- **이미지 업로드(OSS)** — Supabase Storage에 이미지를 업로드하면 마크다운 본문에 자동 삽입
+- **이미지(OSS)** — 파일 업로드(Supabase Storage) 또는 URL로 본문에 이미지 삽입
+- **유튜브 임베드** — 본문에 유튜브 URL을 넣으면 상세 페이지에서 영상이 바로 재생
 - **분야별 보기** — AI / 우주 / 과학 / 웹개발 / 기타 탭으로 필터링
-- **로그인(주인 전용 쓰기)** — 이메일+비밀번호 로그인. *현재는 토글로 임시 비활성화* (아래 [로그인 기능](#-로그인-기능-onoff) 참고)
 - **다크 모드** — OS 설정에 따라 자동 적용
 
 ---
@@ -36,23 +37,25 @@
 MyBlog/
 ├─ src/
 │  ├─ app/
-│  │  ├─ layout.tsx              # 공통 레이아웃 + 헤더(로그인 상태별 메뉴)
+│  │  ├─ layout.tsx              # 공통 레이아웃 + 헤더(잠금 상태별 메뉴)
 │  │  ├─ page.tsx                # 홈: 글 목록 + 분야 탭 필터
-│  │  ├─ login/page.tsx          # 로그인 페이지
+│  │  ├─ login/page.tsx          # 잠금 해제(패스코드) 페이지
 │  │  └─ posts/
 │  │     ├─ new/page.tsx         # 새 글 작성
 │  │     └─ [id]/
-│  │        ├─ page.tsx          # 글 상세 (마크다운 렌더링)
+│  │        ├─ page.tsx          # 글 상세 (마크다운/유튜브 렌더링)
 │  │        └─ edit/page.tsx     # 글 수정
 │  ├─ components/
-│  │  ├─ PostForm.tsx            # 작성/수정 공용 폼 (분야 선택 포함)
+│  │  ├─ PostForm.tsx            # 작성/수정 공용 폼 (분야·이미지·유튜브)
+│  │  ├─ MarkdownContent.tsx     # 마크다운 + 유튜브 임베드 렌더러
 │  │  ├─ DeleteButton.tsx        # 삭제 버튼 (확인창)
-│  │  └─ LoginForm.tsx           # 로그인 폼
+│  │  └─ PasscodeForm.tsx        # 6자리 패스코드 입력 폼
 │  ├─ lib/
 │  │  ├─ posts.ts                # 글 CRUD 서버 액션
-│  │  ├─ auth.ts                 # 로그인/로그아웃 서버 액션
-│  │  ├─ session.ts              # 인증 헬퍼 + AUTH_ENABLED 토글
+│  │  ├─ auth.ts                 # 패스코드 잠금 해제/잠금 서버 액션
+│  │  ├─ session.ts              # 패스코드 검증 헬퍼(isOwner)
 │  │  ├─ categories.ts           # 분야 목록 상수
+│  │  ├─ youtube.ts              # 유튜브 URL → 영상 ID 추출
 │  │  ├─ types.ts                # Post 타입
 │  │  └─ supabase/
 │  │     ├─ server.ts            # 서버용 Supabase 클라이언트
@@ -97,9 +100,14 @@ npm install
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-PUBLIC-KEY
 
-# 블로그 주인 이메일 (로그인 기능을 켤 때 사용)
+# 글 작성/수정/삭제 잠금 해제용 6자리 패스코드 (본인 코드로 변경!)
+BLOG_PASSCODE=000000
+
+# (선택) 이메일 로그인 방식을 쓸 때만 사용
 OWNER_EMAIL=your-email@example.com
 ```
+
+> 패스코드는 `BLOG_PASSCODE` 환경변수로 관리합니다. `NEXT_PUBLIC_` 접두사가 **없으므로 서버에서만** 읽히고 브라우저에 노출되지 않습니다. 입력한 코드는 쿠키에 해시(SHA-256)로 저장됩니다.
 
 > ⚠️ `.env.local`은 `.gitignore`에 포함되어 커밋되지 않습니다.
 
@@ -138,18 +146,27 @@ node scripts/seed-posts.mjs
 
 ## 📜 사용 방법
 
+### 잠금 해제 (글 작성 전)
+1. 헤더 우측의 **🔓 잠금 해제** 클릭 (`/login`)
+2. 6자리 패스코드 입력 → 해제되면 헤더에 **글쓰기 / 🔒 잠금** 표시
+3. 해제 상태는 쿠키로 30일간 유지. **🔒 잠금**을 누르면 다시 잠깁니다.
+
 ### 글 작성
 1. 헤더의 **글쓰기** 버튼 클릭 (`/posts/new`)
 2. 제목 / 분야 / 본문(마크다운) 입력 후 **발행하기**
 
-### 이미지 업로드 (OSS)
-1. 본문 영역 우측의 **🖼 이미지 추가** 버튼 클릭
-2. 이미지를 선택하면 Supabase Storage(`post-images` 버킷)에 업로드되고,
-   `![이미지](공개URL)` 형태로 **커서 위치에 자동 삽입**됩니다.
-3. 상세 페이지에서 마크다운이 렌더링되며 이미지가 표시됩니다.
+### 이미지 넣기 (OSS)
+본문 영역 우측 도구로 두 가지 방법 지원 — 선택 시 **커서 위치에 자동 삽입**됩니다.
 
-> 사전에 `supabase/storage.sql`을 실행해 버킷과 정책을 만들어야 합니다.
-> (안 했을 경우 업로드 시 안내 메시지가 표시됩니다.)
+- **🖼 이미지 업로드** — 파일 선택 → Supabase Storage(`post-images`)에 업로드 후 `![이미지](공개URL)` 삽입
+- **🔗 이미지 URL** — 외부 이미지 주소를 입력 → `![이미지](URL)` 삽입
+
+> 파일 업로드를 쓰려면 사전에 `supabase/storage.sql`을 실행해야 합니다.
+
+### 유튜브 영상 넣기
+- 본문 도구의 **🎬 유튜브** 클릭 → 영상 URL 입력
+- 본문에는 URL만 들어가고, 상세 페이지에서 **영상 플레이어(iframe)로 자동 렌더링**됩니다.
+- 지원 형식: `youtube.com/watch?v=`, `youtu.be/`, `youtube.com/shorts/`, `youtube.com/embed/`
 
 ### 글 보기 & 분야 필터
 - 홈에서 글 목록을 최신순으로 확인
@@ -158,7 +175,7 @@ node scripts/seed-posts.mjs
 
 ### 글 수정 / 삭제
 - 글 상세 페이지 우상단의 **수정** / **삭제** 버튼 사용
-- (로그인 기능을 켠 경우, 주인으로 로그인했을 때만 버튼이 보임)
+- 잠금이 해제된 상태(패스코드 입력 완료)에서만 버튼이 보입니다.
 
 ### 분야 항목 바꾸기
 `src/lib/categories.ts`의 `CATEGORIES` 배열을 수정하면 작성 폼의 선택지가 바뀝니다.
@@ -169,26 +186,20 @@ export const CATEGORIES = ["AI", "우주", "과학", "웹개발", "기타"] as c
 
 ---
 
-## 🔐 로그인 기능 (ON/OFF)
+## 🔐 패스코드 잠금
 
-권한 모델: **읽기는 누구나 / 작성·수정·삭제는 주인(`OWNER_EMAIL`)만**.
+권한 모델: **읽기는 누구나 / 작성·수정·삭제는 패스코드 해제자만**.
 
-현재는 개발 편의를 위해 **임시로 꺼져 있습니다.** 토글은 `src/lib/session.ts`에 있습니다.
+- 패스코드는 `.env.local`의 `BLOG_PASSCODE`(6자리 숫자)로 설정합니다.
+- `/login`에서 패스코드를 맞히면 httpOnly 쿠키가 발급되어 30일간 해제 상태가 유지됩니다.
+- 쿠키에는 원본 코드가 아닌 **SHA-256 해시**가 저장됩니다 (`src/lib/session.ts`).
+- 잠금 해제 여부 판별: `isOwner()` / 서버 액션 진입 시 `assertOwner()`로 검증.
 
-```ts
-export const AUTH_ENABLED = false; // false: 로그인 없이 누구나 쓰기 가능 (현재)
-                                   // true : 주인 로그인해야만 쓰기 가능
+```
+패스코드 변경:  .env.local 의 BLOG_PASSCODE 값을 수정 → 서버 재시작
 ```
 
-### 로그인 기능을 켜는 방법
-
-1. `src/lib/session.ts`에서 `AUTH_ENABLED = true`로 변경
-2. `.env.local`의 `OWNER_EMAIL`이 주인 이메일과 일치하는지 확인
-3. Supabase 대시보드 **Authentication → Users → Add user**로 주인 계정 생성
-   - 이메일 = `OWNER_EMAIL` 값, 비밀번호 지정, **Auto Confirm User 체크**
-4. `supabase/auth-policies.sql` 실행 (DB 레벨에서도 주인만 쓰기 가능하도록 RLS 적용)
-   - ⚠️ `auth-policies.sql` 안의 이메일(`ghk1722@gmail.com`)을 본인 주인 이메일로 맞춰주세요.
-5. `/login`에서 로그인
+> **참고:** 이 패스코드는 **앱 레벨** 보호입니다. DB(RLS)는 별개이며, 더 강력한 DB 레벨 보호가 필요하면 `supabase/auth-policies.sql`(이메일 로그인 기반)을 적용하는 방식도 있습니다.
 
 ---
 
@@ -215,7 +226,7 @@ export const AUTH_ENABLED = false; // false: 로그인 없이 누구나 쓰기 �
 | `/posts/new` | 새 글 작성 |
 | `/posts/[id]` | 글 상세 |
 | `/posts/[id]/edit` | 글 수정 |
-| `/login` | 로그인 |
+| `/login` | 잠금 해제 (패스코드 입력) |
 
 ---
 
@@ -234,16 +245,17 @@ export const AUTH_ENABLED = false; // false: 로그인 없이 누구나 쓰기 �
 ## ☁️ 배포 (Vercel)
 
 1. [Vercel](https://vercel.com)에 이 저장소 import
-2. 환경변수(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `OWNER_EMAIL`) 등록
+2. 환경변수(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `BLOG_PASSCODE`) 등록
 3. 배포
 
 > ### ⚠️ 배포 전 보안 체크
-> `NEXT_PUBLIC_` 환경변수(anon 키 포함)는 **브라우저에 노출**됩니다.
-> 배포한다면 외부에서 DB를 마음대로 수정하지 못하도록 **반드시** 아래를 먼저 적용하세요.
-> 1. `AUTH_ENABLED = true` (로그인 켜기)
-> 2. `supabase/auth-policies.sql` 실행 (RLS 활성화)
+> 패스코드 잠금은 **앱(UI/서버 액션) 레벨** 보호입니다. 반면 `NEXT_PUBLIC_SUPABASE_ANON_KEY`는 **브라우저에 노출**되고, 현재 DB는 RLS가 꺼져 있어 **anon 키만으로 DB에 직접 쓰기/삭제가 가능**합니다.
 >
-> 현재처럼 RLS가 꺼진 상태로 배포하면 anon 키만으로 누구나 글을 쓰거나 지울 수 있습니다.
+> 공개 배포한다면 DB 자체를 보호하기 위해 **RLS 적용을 권장**합니다.
+> - 간단하게: `posts` 테이블 RLS를 켜고 `select`만 허용 → 쓰기는 막고, 글 작성은 서비스 측에서만(별도 처리)
+> - 또는 `supabase/auth-policies.sql`(이메일 로그인 기반)로 전환
+>
+> 개인적으로 비공개로 쓰거나 키를 노출하지 않는 환경이라면 패스코드 잠금만으로도 충분합니다.
 
 ---
 

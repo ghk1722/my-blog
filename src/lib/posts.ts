@@ -12,10 +12,10 @@ function parseForm(formData: FormData) {
   return { title, content, category };
 }
 
-/** 글 쓰기 권한(주인)이 없으면 에러 */
+/** 글 쓰기 권한이 없으면 에러 (패스코드로 잠금 해제 필요) */
 async function assertOwner() {
   if (!(await isOwner())) {
-    throw new Error("권한이 없습니다. 관리자만 글을 작성/수정/삭제할 수 있습니다.");
+    throw new Error("권한이 없습니다. 패스코드로 잠금을 해제해 주세요.");
   }
 }
 

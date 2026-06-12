@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { logout } from "@/lib/auth";
-import { AUTH_ENABLED, isOwner } from "@/lib/session";
+import { lock } from "@/lib/auth";
+import { isOwner } from "@/lib/session";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,15 +39,7 @@ export default async function RootLayout({
               권경희의 새로운 세계
             </Link>
             <nav className="flex items-center gap-2">
-              {/* 로그인 기능 OFF: 글쓰기만 노출 */}
-              {!AUTH_ENABLED ? (
-                <Link
-                  href="/posts/new"
-                  className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700"
-                >
-                  글쓰기
-                </Link>
-              ) : owner ? (
+              {owner ? (
                 <>
                   <Link
                     href="/posts/new"
@@ -55,12 +47,12 @@ export default async function RootLayout({
                   >
                     글쓰기
                   </Link>
-                  <form action={logout}>
+                  <form action={lock}>
                     <button
                       type="submit"
                       className="rounded-md px-3 py-1.5 text-sm font-medium text-black/60 transition hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/10"
                     >
-                      로그아웃
+                      🔒 잠금
                     </button>
                   </form>
                 </>
@@ -69,7 +61,7 @@ export default async function RootLayout({
                   href="/login"
                   className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
                 >
-                  로그인
+                  🔓 잠금 해제
                 </Link>
               )}
             </nav>

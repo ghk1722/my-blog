@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { CATEGORIES } from "@/lib/categories";
 import { createClient } from "@/lib/supabase/client";
+import { getYouTubeId } from "@/lib/youtube";
 
 const BUCKET = "post-images";
 
@@ -86,6 +87,26 @@ export default function PostForm({
     }
   }
 
+  /** URL로 이미지 삽입 */
+  function handleImageUrl() {
+    setUploadError("");
+    const url = window.prompt("이미지 URL을 입력하세요");
+    if (!url || !url.trim()) return;
+    insertAtCursor(`\n![이미지](${url.trim()})\n`);
+  }
+
+  /** URL로 유튜브 영상 삽입 (본문에 URL을 넣으면 상세 페이지에서 영상으로 표시됨) */
+  function handleYouTube() {
+    setUploadError("");
+    const url = window.prompt("유튜브 영상 URL을 입력하세요");
+    if (!url || !url.trim()) return;
+    if (!getYouTubeId(url.trim())) {
+      setUploadError("유효한 유튜브 URL이 아닙니다.");
+      return;
+    }
+    insertAtCursor(`\n${url.trim()}\n`);
+  }
+
   return (
     <form action={action} className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
@@ -127,23 +148,44 @@ export default function PostForm({
             본문 <span className="text-black/50 dark:text-white/50">(마크다운 지원)</span>
           </label>
 
-          {/* 이미지 업로드 버튼 */}
-          <label
-            className={
-              "cursor-pointer rounded-md border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10 " +
-              (uploading ? "pointer-events-none opacity-50" : "")
-            }
-          >
-            {uploading ? "업로드 중..." : "🖼 이미지 추가"}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
-              disabled={uploading}
-            />
-          </label>
+          {/* 미디어 삽입 도구 */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 이미지 파일 업로드 (Supabase Storage) */}
+            <label
+              className={
+                "cursor-pointer rounded-md border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10 " +
+                (uploading ? "pointer-events-none opacity-50" : "")
+              }
+            >
+              {uploading ? "업로드 중..." : "🖼 이미지 업로드"}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+                disabled={uploading}
+              />
+            </label>
+
+            {/* URL로 이미지 삽입 */}
+            <button
+              type="button"
+              onClick={handleImageUrl}
+              className="rounded-md border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            >
+              🔗 이미지 URL
+            </button>
+
+            {/* URL로 유튜브 삽입 */}
+            <button
+              type="button"
+              onClick={handleYouTube}
+              className="rounded-md border border-black/15 px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+            >
+              🎬 유튜브
+            </button>
+          </div>
         </div>
 
         <textarea
@@ -152,7 +194,7 @@ export default function PostForm({
           name="content"
           rows={16}
           defaultValue={defaultValues?.content}
-          placeholder={"# 제목\n\n내용을 마크다운으로 작성하세요.\n\n이미지는 위 '이미지 추가' 버튼으로 업로드하면 커서 위치에 자동 삽입됩니다."}
+          placeholder={"# 제목\n\n내용을 마크다운으로 작성하세요.\n\n위 도구로 이미지(업로드/URL)나 유튜브 영상을 커서 위치에 삽입할 수 있습니다."}
           className="resize-y rounded-md border border-black/15 bg-transparent px-3 py-2 font-mono text-sm outline-none focus:border-blue-500 dark:border-white/20"
         />
 
